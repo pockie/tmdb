@@ -13,6 +13,12 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\HttpClient\Exception\JsonException;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 #[AsCommand(
     name: 'tmdb',
@@ -45,28 +51,27 @@ class TmdbCommand extends Command
         $search = $this->filterArgumentString($input, self::ARGUMENT_SEARCH);
         $limit = $this->filterIntegerArgument($input, self::ARGUMENT_LIMIT);
         $year = $this->filterIntegerOption($input, self::OPTION_YEAR);
-        $page = $this->filterPage($input);
+        $page = $this->filterPageOption($input);
 
         try {
             $result = $this->tmdbService->searchMovies($search, $limit, $page, $year);
 
-            if (count($result->movies) === 0) {
-                $io->error("No results found for '$search'.");
-                return Command::FAILURE;
-            }
-
             $movies = $result->movies;
+            $moviesCount = count($movies);
             $totalPages = $result->totalPages ?? 0;
-
-            $this->renderIntroduction($search, count($movies), $year, $limit, $totalPages, $page, $io);
 
             if ($page > $result->totalPages) {
                 $io->warning("Page $page exceeds total pages of $totalPages. Please change the page option to maximum of $totalPages.");
-
+                return Command::SUCCESS;
             }
 
-            $this->renderMovies($movies, $io);
+            if ($moviesCount === 0) {
+                $io->warning("No results found for '$search'.");
+                return Command::SUCCESS;
+            }
 
+            $this->renderIntroduction($search, $moviesCount, $year, $limit, $totalPages, $page, $io);
+            $this->renderMovies($movies, $io);
         } catch (RuntimeException $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
@@ -115,7 +120,7 @@ class TmdbCommand extends Command
         return $optionValue;
     }
 
-    private function filterPage(InputInterface $input): int
+    private function filterPageOption(InputInterface $input): int
     {
         $pageValue = $this->filterIntegerOption($input, self::OPTION_PAGE);
 
@@ -137,6 +142,7 @@ class TmdbCommand extends Command
         $io->text("Limit: $limit");
         $io->text("Found: $countMovies movie(s)");
         $io->text("Page: $page/$totalPages");
+        $io->newLine();
     }
 
     /**

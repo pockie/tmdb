@@ -20,6 +20,7 @@ class TmdbCommandTest extends TestCase
     /**
      * @param MovieResult[] $movies
      * @param array<string, array<string, string|int>> $executeParams
+     * @throws Exception
      */
     #[Test]
     #[DataProvider('executeSuccessProvider')]
@@ -201,7 +202,7 @@ class TmdbCommandTest extends TestCase
 
         $output = $tester->getDisplay();
         $this->assertStringContainsString('No results found for \'NonExistentMovie\'.', $output);
-        $this->assertEquals(Command::FAILURE, $tester->getStatusCode());
+        $this->assertEquals(Command::SUCCESS, $tester->getStatusCode());
     }
 
     #[Test]
@@ -239,7 +240,7 @@ class TmdbCommandTest extends TestCase
 
     private function assertMovieInOutput(string $output, MovieResult $movie): void
     {
-        $title = $movie->title;
+        $title = $movie->title ?? 'N/A';
         $releaseDate = $movie->releaseDate ?? 'N/A';
         $overview = $movie->overview ?? 'No description available';
 
