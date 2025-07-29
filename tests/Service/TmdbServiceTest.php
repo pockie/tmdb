@@ -2,139 +2,109 @@
 
 namespace App\Tests\Service;
 
-use App\Dto\MovieSearchResult;
 use App\Service\TmdbService;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
 class TmdbServiceTest extends TestCase
 {
-    public function testSearchMovies(): void
+
+    /**
+     * @param array<array<string>> $mockMovies
+     * @param int $limit
+     * @param int|null $year
+     * @param int $expectedCount
+     * @param array<string> $expectedTitles
+     * @return void
+     */
+    #[DataProvider('movieSearchProvider')]
+    #[Test]
+    public function searchMovies(array $mockMovies, int $limit, ?int $year, int $expectedCount, array $expectedTitles): void
     {
-        $movie1 = new MovieSearchResult(
-            'Movie 1',
-            'Description 1',
-            '2021-01-01'
-        );
-        $movie2 = new MovieSearchResult(
-            'Movie 2',
-            'Description 2',
-            '2021-02-01'
-        );
+        $service = $this->createMockService(['results' => $mockMovies]);
+        $result = $service->searchMovies('test', $limit, 1, $year);
 
-        $mockData = [
-            'results' => [$movie1, $movie2],
-        ];
-        $mockResponse = new MockResponse(json_encode($mockData));
-        $mockClient = new MockHttpClient($mockResponse);
+        $this->assertCount($expectedCount, $result->movies);
 
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $result = $service->searchMovies('test', 5);
-
-        $this->assertCount(2, $result);
-        $this->assertEquals('Movie 1', $result[0]->title);
-        $this->assertEquals('Movie 2', $result[1]->title);
+        foreach ($expectedTitles as $index => $expectedTitle) {
+            $this->assertEquals($expectedTitle, $result->movies[$index]->title);
+        }
     }
 
-    public function testSearchMoviesReturnsLimitedResults(): void
+    /**
+     * @param array<array<string>> $mockData
+     * @return void
+     */
+    #[DataProvider('emptyResultProvider')]
+    #[Test]
+    public function searchMoviesWithEmptyResults(array $mockData): void
     {
-        $movie1 = new MovieSearchResult(
-            'Movie 1',
-            'Description 1',
-            '2021-01-01'
-        );
-        $movie2 = new MovieSearchResult(
-            'Movie 2',
-            'Description 2',
-            '2021-02-01'
-        );
-        $movie3 = new MovieSearchResult(
-            'Movie 3',
-            'Description 3',
-            '2021-03-01'
-        );
+        $service = $this->createMockService($mockData);
+        $result = $service->searchMovies('test', 5, 1);
 
-        $mockData = [
-            'results' => [
-                $movie1, $movie2, $movie3
-            ]
-        ];
-
-        $mockResponse = new MockResponse(json_encode($mockData));
-        $mockClient = new MockHttpClient($mockResponse);
-
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $result = $service->searchMovies('test', 2);
-
-        $this->assertCount(2, $result);
-        $this->assertEquals('Movie 1', $result[0]->title);
-        $this->assertEquals('Movie 2', $result[1]->title);
+        $this->assertCount(0, $result->movies);
     }
 
-    public function testSearchMoviesWithYearFilter(): void
+    #[Test]
+    public function searchMoviesThrowsExceptionOnError(): void
     {
-        $movie1 = new MovieSearchResult(
-            'Movie 1',
-            'Description 1',
-            '2021-01-01'
-        );
-        $movie2 = new MovieSearchResult(
-            'Movie 2',
-            'Description 2',
-            '2021-02-01'
-        );
-
-        $mockData = [
-            'results' => [
-                $movie1, $movie2
-            ]
-        ];
-
-        $mockResponse = new MockResponse(json_encode($mockData));
-        $mockClient = new MockHttpClient($mockResponse);
-
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $result = $service->searchMovies('test', 5, 2021);
-
-        $this->assertCount(2, $result);
-        $this->assertEquals('Movie 1', $result[0]->title);
-        $this->assertEquals('Movie 2', $result[1]->title);
-    }
-
-    public function testSearchMoviesWithEmptyResult(): void
-    {
-        $mockData = ['results' => []];
-        $mockResponse = new MockResponse(json_encode($mockData));
-        $mockClient = new MockHttpClient($mockResponse);
-
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $result = $service->searchMovies('test', 5);
-
-        $this->assertCount(0, $result);
-    }
-
-    public function testSearchMoviesWithMissingResult(): void
-    {
-        $mockData = [];
-        $mockResponse = new MockResponse(json_encode($mockData));
-        $mockClient = new MockHttpClient($mockResponse);
-
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $result = $service->searchMovies('test', 5);
-
-        $this->assertCount(0, $result);
-    }
-
-    public function testSearchMoviesThrowsExceptionOnError(): void
-    {
-        $mockResponse = new MockResponse('', ['http_code' => 500]);
-        $mockClient = new MockHttpClient($mockResponse);
+        $service = $this->createMockService([], 500);
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Failed to fetch data from TMDB. Did you set the TMDB_API_KEY environment variable?');
 
-        $service = new TmdbService($mockClient, 'dummy_api_key');
-        $service->searchMovies('test', 5);
+        $service->searchMovies('test', 5, 1);
+    }
+
+    /**
+     * @param array<array<string>>|array<string, array<array<string>>> $mockData
+     * @param int $httpCode
+     * @return TmdbService
+     */
+    private function createMockService(array $mockData, int $httpCode = 200): TmdbService
+    {
+        $jsonData = json_encode($mockData);
+        $this->assertNotFalse($jsonData);
+
+        $mockResponse = new MockResponse($jsonData, ['http_code' => $httpCode]);
+        $mockClient = new MockHttpClient($mockResponse);
+
+        return new TmdbService($mockClient, 'dummy_api_key');
+    }
+
+    /**
+     * @return array<string, list<array<string, array<string>>>>
+     */
+    public static function emptyResultProvider(): array
+    {
+        return [
+            'empty results' => [['results' => []]],
+            'missing results' => [[]],
+        ];
+    }
+
+    /**
+     * @return array<string, list<int|list<array<string, string>|string>|null>>
+     */
+    public static function movieSearchProvider(): array
+    {
+        $movie1 = ['title' => 'Movie 1', 'overview' => 'Description 1', 'releaseDate' => '2021-01-01'];
+        $movie2 = ['title' => 'Movie 2', 'overview' => 'Description 2', 'releaseDate' => '2021-02-01'];
+        $movie3 = ['title' => 'Movie 3', 'overview' => 'Description 3', 'releaseDate' => '2021-03-01'];
+
+        return [
+            'basic search' => [
+                [$movie1, $movie2], 5, null, 2, ['Movie 1', 'Movie 2']
+            ],
+            'limited results' => [
+                [$movie1, $movie2, $movie3], 2, null, 2, ['Movie 1', 'Movie 2']
+            ],
+            'with year filter' => [
+                [$movie1, $movie2, $movie3], 3, 2021, 3, ['Movie 1', 'Movie 2', 'Movie 3']
+            ],
+        ];
     }
 }

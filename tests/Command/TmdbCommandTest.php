@@ -3,7 +3,8 @@
 namespace App\Tests\Command;
 
 use App\Command\TmdbCommand;
-use App\Dto\MovieSearchResult;
+use App\Dto\MovieResult;
+use App\Dto\SearchResult;
 use App\Service\TmdbService;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -14,23 +15,25 @@ class TmdbCommandTest extends TestCase
 {
     public function testExecuteSuccess(): void
     {
-        $movie1 = new MovieSearchResult(
+        $movie1 = new MovieResult(
             'Test Movie 1',
             'Description of Test Movie 1',
             '1999-01-01'
         );
-        $movie2 = new MovieSearchResult(
+        $movie2 = new MovieResult(
             'Test Movie 2',
             'Description of Test Movie 2',
             '2000-02-01'
         );
+        $searchResult = new SearchResult(
+            [$movie1, $movie2],
+            2,
+            1
+        );
 
         $mockService = $this->createMock(TmdbService::class);
         $mockService->method('searchMovies')
-            ->willReturn([
-                $movie1,
-                $movie2
-            ]);
+            ->willReturn($searchResult);
 
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
@@ -48,21 +51,28 @@ class TmdbCommandTest extends TestCase
         $this->assertStringContainsString('Test Movie 2', $output);
         $this->assertStringContainsString('2000-02-01', $output);
         $this->assertStringContainsString('Description of Test Movie 2', $output);
+
+        $this->assertStringContainsString('Limit: 2', $output);
+        $this->assertStringContainsString('Found: 2 movie(s)', $output);
+        $this->assertStringContainsString('Page: 1/1', $output);
     }
 
     public function testExecuteWithYearFilter(): void
     {
-        $movie = new MovieSearchResult(
+        $movie = new MovieResult(
             'Filtered Movie',
             'Description of Filtered Movie',
             '2000-01-01'
         );
+        $searchResult = new SearchResult(
+            [$movie],
+            1,
+            1
+        );
 
         $mockService = $this->createMock(TmdbService::class);
         $mockService->method('searchMovies')
-            ->willReturn([
-                $movie
-            ]);
+            ->willReturn($searchResult);
 
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
@@ -77,6 +87,11 @@ class TmdbCommandTest extends TestCase
         $this->assertStringContainsString('Filtered Movie', $output);
         $this->assertStringContainsString('2000-01-01', $output);
         $this->assertStringContainsString('Description of Filtered Movie', $output);
+
+
+        $this->assertStringContainsString('Limit: 1', $output);
+        $this->assertStringContainsString('Found: 1 movie(s)', $output);
+        $this->assertStringContainsString('Page: 1/1', $output);
     }
 
     public function testExecuteFailureBecauseOfRunTimeException(): void

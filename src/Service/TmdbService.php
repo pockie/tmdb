@@ -2,7 +2,8 @@
 
 namespace App\Service;
 
-use App\Dto\MovieSearchResult;
+use App\Dto\MovieResult;
+use App\Dto\SearchResult;
 use Exception;
 use RuntimeException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -23,15 +24,15 @@ class TmdbService
      * @param string $query
      * @param int $limit
      * @param int|null $year
-     * @return array<MovieSearchResult>
+     * @return SearchResult
      */
-    public function searchMovies(string $query, int $limit, ?int $year = null): array
+    public function searchMovies(string $query, int $limit, int $page, ?int $year = null): SearchResult
     {
         $params = [
             'query' => $query,
             'api_key' => $this->apiKey,
             'language' => 'en-US',
-            'page' => 1,
+            'page' => $page,
         ];
 
         if ($year) {
@@ -44,10 +45,11 @@ class TmdbService
             ]);
 
             $data = $response->toArray();
+            $movies = [];
 
             if (array_key_exists('results', $data)) {
-                return array_map(
-                    fn($item) => new MovieSearchResult(
+                $movies = array_map(
+                    fn($item) => new MovieResult(
                         $item['title'],
                         $item['overview'] ?? null,
                         $item['release_date'] ?? null
@@ -56,8 +58,11 @@ class TmdbService
                 );
             }
 
-
-            return [];
+            return new SearchResult(
+                $movies,
+                $data['total_results'] ?? 0,
+                $data['total_pages'] ?? 0
+            );
         } catch (Exception) {
             throw new RuntimeException(
                 'Failed to fetch data from TMDB. Did you set the TMDB_API_KEY environment variable?'
