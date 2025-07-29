@@ -9,6 +9,7 @@ use App\Service\TmdbService;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\Exception;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\RuntimeException;
@@ -16,6 +17,10 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 class TmdbCommandTest extends TestCase
 {
+    /**
+     * @param MovieResult[] $movies
+     * @param array<string, array<string, string|int>> $executeParams
+     */
     #[Test]
     #[DataProvider('executeSuccessProvider')]
     public function ExecuteSuccess(array $movies, array $executeParams, int $expectedCount): void
@@ -32,7 +37,8 @@ class TmdbCommandTest extends TestCase
             $this->assertMovieInOutput($output, $movie);
         }
 
-        $this->assertStringContainsString("Limit: {$executeParams['limit']}", $output);
+        $limit = (int)$executeParams['limit'];
+        $this->assertStringContainsString("Limit: $limit", $output);
         $this->assertStringContainsString("Found: {$expectedCount} movie(s)", $output);
         $this->assertStringContainsString('Page: 1/1', $output);
     }
@@ -215,6 +221,11 @@ class TmdbCommandTest extends TestCase
         $this->assertEquals(Command::SUCCESS, $tester->getStatusCode());
     }
 
+    /**
+     * @param array<MovieResult> $movies
+     * @return TmdbService
+     * @throws Exception
+     */
     private function createMockServiceWithMovies(array $movies): TmdbService
     {
         $totalResults = count($movies);
@@ -228,11 +239,18 @@ class TmdbCommandTest extends TestCase
 
     private function assertMovieInOutput(string $output, MovieResult $movie): void
     {
-        $this->assertStringContainsString($movie->title, $output);
-        $this->assertStringContainsString($movie->releaseDate, $output);
-        $this->assertStringContainsString($movie->overview, $output);
+        $title = $movie->title;
+        $releaseDate = $movie->releaseDate ?? 'N/A';
+        $overview = $movie->overview ?? 'No description available';
+
+        $this->assertStringContainsString($title, $output);
+        $this->assertStringContainsString($releaseDate, $output);
+        $this->assertStringContainsString($overview, $output);
     }
 
+    /**
+     * @return array<string, array{movies: MovieResult[], executeParams: array<string, string|int>, expectedCount: int}>
+     */
     public static function executeSuccessProvider(): array
     {
         return [
@@ -240,9 +258,10 @@ class TmdbCommandTest extends TestCase
                 'movies' => [
                     new MovieResult('Test Movie 1', 'Description of Test Movie 1', '1999-01-01'),
                     new MovieResult('Test Movie 2', 'Description of Test Movie 2', '2000-02-01'),
+                    new MovieResult('Test Movie 2', null, null),
                 ],
                 'executeParams' => ['search' => 'Test', 'limit' => 2],
-                'expectedCount' => 2,
+                'expectedCount' => 3,
             ],
             'search with year filter' => [
                 'movies' => [

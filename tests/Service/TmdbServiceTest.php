@@ -110,7 +110,7 @@ class TmdbServiceTest extends TestCase
     }
 
     /**
-     * @return array<string, list<array<string, int|string>>>
+     * @return array<string, array<int|string>>
      */
     public static function movieSearchHttpErrorCodeProvider(): array
     {
