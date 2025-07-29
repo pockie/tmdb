@@ -6,6 +6,12 @@ use App\Dto\MovieResult;
 use App\Dto\SearchResult;
 use Exception;
 use RuntimeException;
+use Symfony\Component\HttpClient\Exception\JsonException;
+use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class TmdbService
@@ -23,8 +29,16 @@ class TmdbService
     /**
      * @param string $query
      * @param int $limit
+     * @param int $page
      * @param int|null $year
      * @return SearchResult
+     * @throws ClientExceptionInterface
+     * @throws DecodingExceptionInterface
+     * @throws RedirectionExceptionInterface
+     * @throws ServerExceptionInterface
+     * @throws TransportExceptionInterface
+     * @throws JsonException
+     * @throws RuntimeException
      */
     public function searchMovies(string $query, int $limit, int $page, ?int $year = null): SearchResult
     {
@@ -63,9 +77,44 @@ class TmdbService
                 $data['total_results'] ?? 0,
                 $data['total_pages'] ?? 0
             );
-        } catch (Exception) {
+        } catch (TransportExceptionInterface $e) {
             throw new RuntimeException(
-                'Failed to fetch data from TMDB. Did you set the TMDB_API_KEY environment variable?'
+                'Network error while connecting to the TMDB API. Please check your internet connection.',
+                0,
+                $e
+            );
+        } catch (ClientExceptionInterface $e) {
+            $statusCode = $e->getResponse()->getStatusCode();
+            if ($statusCode === 401) {
+                throw new RuntimeException(
+                    'Invalid TMDB API key. Please set the TMDB_API_KEY environment variable.',
+                    401,
+                    $e
+                );
+            } elseif ($statusCode === 404) {
+                throw new RuntimeException(
+                    'TMDB API endpoint not found. The API URL may be outdated.',
+                    404,
+                    $e
+                );
+            } else {
+                throw new RuntimeException(
+                    "TMDB API client error (Status: {$statusCode}). Please check your request parameters.",
+                    $statusCode,
+                    $e
+                );
+            }
+        } catch (ServerExceptionInterface $e) {
+            throw new RuntimeException(
+                'TMDB API server error. Please try again later.',
+                $e->getResponse()->getStatusCode(),
+                $e
+            );
+        } catch (RedirectionExceptionInterface $e) {
+            throw new RuntimeException(
+                'Unexpected redirect from the TMDB API.',
+                $e->getResponse()->getStatusCode(),
+                $e
             );
         }
     }

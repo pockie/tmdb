@@ -20,8 +20,8 @@ class TmdbServiceTest extends TestCase
      * @param array<string> $expectedTitles
      * @return void
      */
-    #[DataProvider('movieSearchProvider')]
     #[Test]
+    #[DataProvider('movieSearchProvider')]
     public function searchMovies(array $mockMovies, int $limit, ?int $year, int $expectedCount, array $expectedTitles): void
     {
         $service = $this->createMockService(['results' => $mockMovies]);
@@ -38,8 +38,8 @@ class TmdbServiceTest extends TestCase
      * @param array<array<string>> $mockData
      * @return void
      */
-    #[DataProvider('emptyResultProvider')]
     #[Test]
+    #[DataProvider('emptyResultProvider')]
     public function searchMoviesWithEmptyResults(array $mockData): void
     {
         $service = $this->createMockService($mockData);
@@ -49,12 +49,13 @@ class TmdbServiceTest extends TestCase
     }
 
     #[Test]
-    public function searchMoviesThrowsExceptionOnError(): void
+    #[DataProvider('movieSearchHttpErrorCodeProvider')]
+    public function searchMoviesThrowsExceptionOnHttpErrors(int $httpStatusCode, string $errorMessage): void
     {
-        $service = $this->createMockService([], 500);
+        $service = $this->createMockService([], $httpStatusCode);
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Failed to fetch data from TMDB. Did you set the TMDB_API_KEY environment variable?');
+        $this->expectExceptionMessage($errorMessage);
 
         $service->searchMovies('test', 5, 1);
     }
@@ -104,6 +105,31 @@ class TmdbServiceTest extends TestCase
             ],
             'with year filter' => [
                 [$movie1, $movie2, $movie3], 3, 2021, 3, ['Movie 1', 'Movie 2', 'Movie 3']
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, list<array<string, int|string>>>
+     */
+    public static function movieSearchHttpErrorCodeProvider(): array
+    {
+        return [
+            'http error 400' => [
+                400,
+                'TMDB API client error (Status: 400). Please check your request parameters.'
+            ],
+            'http error 401' => [
+                401,
+                'Invalid TMDB API key. Please set the TMDB_API_KEY environment variable.'
+            ],
+            'http error 404' => [
+                404,
+                'TMDB API endpoint not found. The API URL may be outdated.'
+            ],
+            'http error 500' => [
+                500,
+                'TMDB API server error. Please try again later.'
             ],
         ];
     }
