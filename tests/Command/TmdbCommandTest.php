@@ -6,6 +6,9 @@ use App\Command\TmdbCommand;
 use App\Dto\MovieResult;
 use App\Dto\SearchResult;
 use App\Service\TmdbService;
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Exception\RuntimeException;
@@ -13,88 +16,29 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 class TmdbCommandTest extends TestCase
 {
-    public function testExecuteSuccess(): void
+    #[Test]
+    #[DataProvider('executeSuccessProvider')]
+    public function ExecuteSuccess(array $movies, array $executeParams, int $expectedCount): void
     {
-        $movie1 = new MovieResult(
-            'Test Movie 1',
-            'Description of Test Movie 1',
-            '1999-01-01'
-        );
-        $movie2 = new MovieResult(
-            'Test Movie 2',
-            'Description of Test Movie 2',
-            '2000-02-01'
-        );
-        $searchResult = new SearchResult(
-            [$movie1, $movie2],
-            2,
-            1
-        );
-
-        $mockService = $this->createMock(TmdbService::class);
-        $mockService->method('searchMovies')
-            ->willReturn($searchResult);
-
+        $mockService = $this->createMockServiceWithMovies($movies);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $tester->execute([
-            'search' => 'Test',
-            'limit' => 2,
-        ]);
+        $tester->execute($executeParams);
 
         $output = $tester->getDisplay();
-        $this->assertStringContainsString('Test Movie', $output);
-        $this->assertStringContainsString('1999-01-01', $output);
-        $this->assertStringContainsString('Description of Test Movie 1', $output);
 
-        $this->assertStringContainsString('Test Movie 2', $output);
-        $this->assertStringContainsString('2000-02-01', $output);
-        $this->assertStringContainsString('Description of Test Movie 2', $output);
+        foreach ($movies as $movie) {
+            $this->assertMovieInOutput($output, $movie);
+        }
 
-        $this->assertStringContainsString('Limit: 2', $output);
-        $this->assertStringContainsString('Found: 2 movie(s)', $output);
+        $this->assertStringContainsString("Limit: {$executeParams['limit']}", $output);
+        $this->assertStringContainsString("Found: {$expectedCount} movie(s)", $output);
         $this->assertStringContainsString('Page: 1/1', $output);
     }
 
-    public function testExecuteWithYearFilter(): void
-    {
-        $movie = new MovieResult(
-            'Filtered Movie',
-            'Description of Filtered Movie',
-            '2000-01-01'
-        );
-        $searchResult = new SearchResult(
-            [$movie],
-            1,
-            1
-        );
-
-        $mockService = $this->createMock(TmdbService::class);
-        $mockService->method('searchMovies')
-            ->willReturn($searchResult);
-
-        $command = new TmdbCommand($mockService);
-        $tester = new CommandTester($command);
-
-        $tester->execute([
-            'search' => 'Filtered',
-            'limit' => 1,
-            '--year' => 2000,
-        ]);
-
-        $output = $tester->getDisplay();
-        $this->assertStringContainsString('Filtered Movie', $output);
-        $this->assertStringContainsString('2000-01-01', $output);
-        $this->assertStringContainsString('Description of Filtered Movie', $output);
-
-
-        $this->assertStringContainsString('Limit: 1', $output);
-        $this->assertStringContainsString('Found: 1 movie(s)', $output);
-        $this->assertStringContainsString('Page: 1/1', $output);
-    }
-
-    public function testExecuteFailureBecauseOfRunTimeException(): void
+    #[Test]
+    public function ExecuteFailureBecauseOfRunTimeException(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $mockService->method('searchMovies')
@@ -113,7 +57,8 @@ class TmdbCommandTest extends TestCase
         $this->assertEquals(Command::FAILURE, $tester->getStatusCode());
     }
 
-    public function testExecuteFailureWithMissingArgumentLimit(): void
+    #[Test]
+    public function ExecuteFailureWithMissingArgumentLimit(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -127,7 +72,8 @@ class TmdbCommandTest extends TestCase
         ]);
     }
 
-    public function testExecuteFailureWithMissingArgumentSearch(): void
+    #[Test]
+    public function ExecuteFailureWithMissingArgumentSearch(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -141,7 +87,8 @@ class TmdbCommandTest extends TestCase
         ]);
     }
 
-    public function testExecuteFailureWithMissingArgumentsSearchAndLimit(): void
+    #[Test]
+    public function ExecuteFailureWithMissingArgumentsSearchAndLimit(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -151,5 +98,159 @@ class TmdbCommandTest extends TestCase
         $this->expectExceptionMessage('Not enough arguments (missing: "search, limit").');
 
         $tester->execute([]);
+    }
+
+    #[Test]
+    public function ExecuteFailureWithInvalidSearchArgument(): void
+    {
+        $mockService = $this->createMock(TmdbService::class);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Search must not be empty.');
+
+        $tester->execute([
+            'search' => '',
+            'limit' => 5,
+            '--year' => 'invalid',
+        ]);
+    }
+
+    #[Test]
+    public function ExecuteFailureWithInvalidLimitArgument(): void
+    {
+        $mockService = $this->createMock(TmdbService::class);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Limit must be an integer.');
+
+        $tester->execute([
+            'search' => 'Test',
+            'limit' => 'invalid',
+            '--year' => 'invalid',
+        ]);
+    }
+
+    #[Test]
+    public function ExecuteFailureWithInvalidYearOption(): void
+    {
+        $mockService = $this->createMock(TmdbService::class);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Year must be an integer.');
+
+        $tester->execute([
+            'search' => 'Test',
+            'limit' => 5,
+            '--year' => 'invalid',
+        ]);
+    }
+
+    #[Test]
+    public function ExecuteFailureWithInvalidPageOptionAsString(): void
+    {
+        $mockService = $this->createMock(TmdbService::class);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Page must be an integer.');
+
+        $tester->execute([
+            'search' => 'Test',
+            'limit' => 5,
+            '--page' => 'invalid',
+        ]);
+    }
+
+    #[Test]
+    public function ExecuteFailureWithInvalidPageOptionLowerThan1(): void
+    {
+        $mockService = $this->createMock(TmdbService::class);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Page number must be greater than 0.');
+
+        $tester->execute([
+            'search' => 'Test',
+            'limit' => 5,
+            '--page' => 0,
+        ]);
+    }
+
+    #[Test]
+    public function ShowErrorMessageIfNoMovieIstFound(): void {
+        $mockService = $this->createMockServiceWithMovies([]);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $tester->execute(['search' => 'NonExistentMovie', 'limit' => 5]);
+
+        $output = $tester->getDisplay();
+        $this->assertStringContainsString('No results found for \'NonExistentMovie\'.', $output);
+        $this->assertEquals(Command::FAILURE, $tester->getStatusCode());
+    }
+
+    #[Test]
+    public function ShowWarningIfPageExceedsTotalPages(): void {
+        $movies = [
+            new MovieResult('Test Movie 1', 'Description of Test Movie 1', '1999-01-01'),
+            new MovieResult('Test Movie 2', 'Description of Test Movie 2', '2000-02-01'),
+        ];
+        $mockService = $this->createMockServiceWithMovies($movies);
+        $command = new TmdbCommand($mockService);
+        $tester = new CommandTester($command);
+
+        $tester->execute(['search' => 'Test', 'limit' => 2, '--page' => 2]);
+
+        $output = $tester->getDisplay();
+        $this->assertStringContainsString('Page 2 exceeds total pages of 1. Please change the page option to maximum of 1.', $output);
+        $this->assertEquals(Command::SUCCESS, $tester->getStatusCode());
+    }
+
+    private function createMockServiceWithMovies(array $movies): TmdbService
+    {
+        $totalResults = count($movies);
+        $searchResult = new SearchResult($movies, $totalResults, 1);
+
+        $mockService = $this->createMock(TmdbService::class);
+        $mockService->method('searchMovies')->willReturn($searchResult);
+
+        return $mockService;
+    }
+
+    private function assertMovieInOutput(string $output, MovieResult $movie): void
+    {
+        $this->assertStringContainsString($movie->title, $output);
+        $this->assertStringContainsString($movie->releaseDate, $output);
+        $this->assertStringContainsString($movie->overview, $output);
+    }
+
+    public static function executeSuccessProvider(): array
+    {
+        return [
+            'basic search' => [
+                'movies' => [
+                    new MovieResult('Test Movie 1', 'Description of Test Movie 1', '1999-01-01'),
+                    new MovieResult('Test Movie 2', 'Description of Test Movie 2', '2000-02-01'),
+                ],
+                'executeParams' => ['search' => 'Test', 'limit' => 2],
+                'expectedCount' => 2,
+            ],
+            'search with year filter' => [
+                'movies' => [
+                    new MovieResult('Filtered Movie', 'Description of Filtered Movie', '2000-01-01'),
+                ],
+                'executeParams' => ['search' => 'Filtered', 'limit' => 1, '--year' => 2000],
+                'expectedCount' => 1,
+            ],
+        ];
     }
 }

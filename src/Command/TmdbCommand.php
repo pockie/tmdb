@@ -77,24 +77,26 @@ class TmdbCommand extends Command
 
     private function filterArgumentString(InputInterface $input, string $argumentName): string
     {
-        $inputValue = $input->getArgument($argumentName);
-        $filteredInput = filter_var($inputValue, FILTER_UNSAFE_RAW);
-        if (empty($filteredInput)) {
-            throw new InvalidArgumentException("$argumentName term must not be empty.");
+        $argumentValueRaw = $input->getArgument($argumentName);
+        $argumentValue = filter_var($argumentValueRaw, FILTER_UNSAFE_RAW);
+        if (empty($argumentValue)) {
+            $messageArgumentName = ucfirst($argumentName);
+            throw new InvalidArgumentException("$messageArgumentName must not be empty.");
         }
 
-        return $filteredInput;
+        return $argumentValue;
     }
 
     private function filterIntegerArgument(InputInterface $input, string $argumentName): int
     {
-        $limitRaw = $input->getArgument($argumentName);
-        $limit = filter_var($limitRaw, FILTER_VALIDATE_INT);
-        if ($limit === false) {
-            throw new InvalidArgumentException("$argumentName must be an integer.");
+        $argumentValueRaw = $input->getArgument($argumentName);
+        $argumentValue = filter_var($argumentValueRaw, FILTER_VALIDATE_INT);
+        if ($argumentValue === false) {
+            $messageArgumentName = ucfirst($argumentName);
+            throw new InvalidArgumentException("$messageArgumentName must be an integer.");
         }
 
-        return $limit;
+        return $argumentValue;
     }
 
     private function filterIntegerOption(InputInterface $input, string $optionName): ?int {
@@ -104,26 +106,26 @@ class TmdbCommand extends Command
             return null;
         }
 
-        $year = filter_var($optionRaw, FILTER_VALIDATE_INT);
-        if ($year === false) {
-            throw new InvalidArgumentException("$optionName must be an integer.");
+        $optionValue = filter_var($optionRaw, FILTER_VALIDATE_INT);
+        if ($optionValue === false) {
+            $messageOptionName = ucfirst($optionName);
+            throw new InvalidArgumentException("$messageOptionName must be an integer.");
         }
 
-        return $year;
+        return $optionValue;
     }
 
     private function filterPage(InputInterface $input): int
     {
-        $optionRaw = $input->getOption(self::OPTION_PAGE);
-        $page = $this->filterIntegerOption($input, self::OPTION_PAGE);
+        $pageValue = $this->filterIntegerOption($input, self::OPTION_PAGE);
 
-        if ($page === null) {
-            $page = 1;
-        } elseif ($page < 1) {
+        if ($pageValue === null) {
+            $pageValue = 1;
+        } elseif ($pageValue < 1) {
             throw new InvalidArgumentException("Page number must be greater than 0.");
         }
 
-        return $page;
+        return $pageValue;
     }
 
     private function renderIntroduction(string $search, int $countMovies, ?int $year, int $limit, int $totalPages, int $page, SymfonyStyle $io): void
