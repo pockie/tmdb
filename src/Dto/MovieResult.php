@@ -9,8 +9,7 @@ class MovieResult
         public ?string $overview,
         public ?string $releaseDate,
         public ?string $totalPages = null,
-        public ?string $totalResults = null
-    )
-    {
+        public ?string $totalResults = null,
+    ) {
     }
 }

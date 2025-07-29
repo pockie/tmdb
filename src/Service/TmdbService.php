@@ -4,8 +4,6 @@ namespace App\Service;
 
 use App\Dto\MovieResult;
 use App\Dto\SearchResult;
-use Exception;
-use RuntimeException;
 use Symfony\Component\HttpClient\Exception\JsonException;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
@@ -27,18 +25,13 @@ class TmdbService
     }
 
     /**
-     * @param string $query
-     * @param int $limit
-     * @param int $page
-     * @param int|null $year
-     * @return SearchResult
      * @throws ClientExceptionInterface
      * @throws DecodingExceptionInterface
      * @throws RedirectionExceptionInterface
      * @throws ServerExceptionInterface
      * @throws TransportExceptionInterface
      * @throws JsonException
-     * @throws RuntimeException
+     * @throws \RuntimeException
      */
     public function searchMovies(string $query, int $limit, int $page, ?int $year = null): SearchResult
     {
@@ -54,7 +47,7 @@ class TmdbService
         }
 
         try {
-            $response = $this->httpClient->request('GET', self::BASE_URL . '/search/movie', [
+            $response = $this->httpClient->request('GET', self::BASE_URL.'/search/movie', [
                 'query' => $params,
             ]);
 
@@ -63,7 +56,7 @@ class TmdbService
 
             if (array_key_exists('results', $data)) {
                 $movies = array_map(
-                    fn($item) => new MovieResult(
+                    fn ($item) => new MovieResult(
                         $item['title'],
                         $item['overview'] ?? null,
                         $item['release_date'] ?? null
@@ -78,44 +71,20 @@ class TmdbService
                 $data['total_pages'] ?? 0
             );
         } catch (TransportExceptionInterface $e) {
-            throw new RuntimeException(
-                'Network error while connecting to the TMDB API. Please check your internet connection.',
-                0,
-                $e
-            );
+            throw new \RuntimeException('Network error while connecting to the TMDB API. Please check your internet connection.', 0, $e);
         } catch (ClientExceptionInterface $e) {
             $statusCode = $e->getResponse()->getStatusCode();
-            if ($statusCode === 401) {
-                throw new RuntimeException(
-                    'Invalid TMDB API key. Please set the TMDB_API_KEY environment variable.',
-                    401,
-                    $e
-                );
-            } elseif ($statusCode === 404) {
-                throw new RuntimeException(
-                    'TMDB API endpoint not found. The API URL may be outdated.',
-                    404,
-                    $e
-                );
+            if (401 === $statusCode) {
+                throw new \RuntimeException('Invalid TMDB API key. Please set the TMDB_API_KEY environment variable.', 401, $e);
+            } elseif (404 === $statusCode) {
+                throw new \RuntimeException('TMDB API endpoint not found. The API URL may be outdated.', 404, $e);
             } else {
-                throw new RuntimeException(
-                    "TMDB API client error (Status: {$statusCode}). Please check your request parameters.",
-                    $statusCode,
-                    $e
-                );
+                throw new \RuntimeException("TMDB API client error (Status: {$statusCode}). Please check your request parameters.", $statusCode, $e);
             }
         } catch (ServerExceptionInterface $e) {
-            throw new RuntimeException(
-                'TMDB API server error. Please try again later.',
-                $e->getResponse()->getStatusCode(),
-                $e
-            );
+            throw new \RuntimeException('TMDB API server error. Please try again later.', $e->getResponse()->getStatusCode(), $e);
         } catch (RedirectionExceptionInterface $e) {
-            throw new RuntimeException(
-                'Unexpected redirect from the TMDB API.',
-                $e->getResponse()->getStatusCode(),
-                $e
-            );
+            throw new \RuntimeException('Unexpected redirect from the TMDB API.', $e->getResponse()->getStatusCode(), $e);
         }
     }
 }

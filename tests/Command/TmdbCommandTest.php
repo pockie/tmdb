@@ -6,7 +6,6 @@ use App\Command\TmdbCommand;
 use App\Dto\MovieResult;
 use App\Dto\SearchResult;
 use App\Service\TmdbService;
-use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\Exception;
@@ -18,13 +17,14 @@ use Symfony\Component\Console\Tester\CommandTester;
 class TmdbCommandTest extends TestCase
 {
     /**
-     * @param MovieResult[] $movies
+     * @param MovieResult[]                            $movies
      * @param array<string, array<string, string|int>> $executeParams
+     *
      * @throws Exception
      */
     #[Test]
     #[DataProvider('executeSuccessProvider')]
-    public function ExecuteSuccess(array $movies, array $executeParams, int $expectedCount): void
+    public function executeSuccess(array $movies, array $executeParams, int $expectedCount): void
     {
         $mockService = $this->createMockServiceWithMovies($movies);
         $command = new TmdbCommand($mockService);
@@ -38,14 +38,14 @@ class TmdbCommandTest extends TestCase
             $this->assertMovieInOutput($output, $movie);
         }
 
-        $limit = (int)$executeParams['limit'];
+        $limit = (int) $executeParams['limit'];
         $this->assertStringContainsString("Limit: $limit", $output);
         $this->assertStringContainsString("Found: {$expectedCount} movie(s)", $output);
         $this->assertStringContainsString('Page: 1/1', $output);
     }
 
     #[Test]
-    public function ExecuteFailureBecauseOfRunTimeException(): void
+    public function executeFailureBecauseOfRunTimeException(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $mockService->method('searchMovies')
@@ -65,7 +65,7 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithMissingArgumentLimit(): void
+    public function executeFailureWithMissingArgumentLimit(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -80,7 +80,7 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithMissingArgumentSearch(): void
+    public function executeFailureWithMissingArgumentSearch(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -95,7 +95,7 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithMissingArgumentsSearchAndLimit(): void
+    public function executeFailureWithMissingArgumentsSearchAndLimit(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
@@ -108,13 +108,13 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithInvalidSearchArgument(): void
+    public function executeFailureWithInvalidSearchArgument(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Search must not be empty.');
 
         $tester->execute([
@@ -125,13 +125,13 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithInvalidLimitArgument(): void
+    public function executeFailureWithInvalidLimitArgument(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Limit must be an integer.');
 
         $tester->execute([
@@ -142,13 +142,13 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithInvalidYearOption(): void
+    public function executeFailureWithInvalidYearOption(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Year must be an integer.');
 
         $tester->execute([
@@ -159,13 +159,13 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithInvalidPageOptionAsString(): void
+    public function executeFailureWithInvalidPageOptionAsString(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Page must be an integer.');
 
         $tester->execute([
@@ -176,13 +176,13 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ExecuteFailureWithInvalidPageOptionLowerThan1(): void
+    public function executeFailureWithInvalidPageOptionLowerThan1(): void
     {
         $mockService = $this->createMock(TmdbService::class);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
 
-        $this->expectException(InvalidArgumentException::class);
+        $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Page number must be greater than 0.');
 
         $tester->execute([
@@ -193,7 +193,8 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ShowErrorMessageIfNoMovieIstFound(): void {
+    public function showErrorMessageIfNoMovieIstFound(): void
+    {
         $mockService = $this->createMockServiceWithMovies([]);
         $command = new TmdbCommand($mockService);
         $tester = new CommandTester($command);
@@ -206,7 +207,8 @@ class TmdbCommandTest extends TestCase
     }
 
     #[Test]
-    public function ShowWarningIfPageExceedsTotalPages(): void {
+    public function showWarningIfPageExceedsTotalPages(): void
+    {
         $movies = [
             new MovieResult('Test Movie 1', 'Description of Test Movie 1', '1999-01-01'),
             new MovieResult('Test Movie 2', 'Description of Test Movie 2', '2000-02-01'),
@@ -224,7 +226,7 @@ class TmdbCommandTest extends TestCase
 
     /**
      * @param array<MovieResult> $movies
-     * @return TmdbService
+     *
      * @throws Exception
      */
     private function createMockServiceWithMovies(array $movies): TmdbService

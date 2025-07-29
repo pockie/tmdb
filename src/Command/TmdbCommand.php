@@ -4,8 +4,6 @@ namespace App\Command;
 
 use App\Dto\MovieResult;
 use App\Service\TmdbService;
-use InvalidArgumentException;
-use RuntimeException;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -13,12 +11,6 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\HttpClient\Exception\JsonException;
-use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\ServerExceptionInterface;
-use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 
 #[AsCommand(
     name: 'tmdb',
@@ -62,18 +54,21 @@ class TmdbCommand extends Command
 
             if ($page > $result->totalPages) {
                 $io->warning("Page $page exceeds total pages of $totalPages. Please change the page option to maximum of $totalPages.");
+
                 return Command::SUCCESS;
             }
 
-            if ($moviesCount === 0) {
+            if (0 === $moviesCount) {
                 $io->warning("No results found for '$search'.");
+
                 return Command::SUCCESS;
             }
 
             $this->renderIntroduction($search, $moviesCount, $year, $limit, $totalPages, $page, $io);
             $this->renderMovies($movies, $io);
-        } catch (RuntimeException $e) {
+        } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -86,7 +81,7 @@ class TmdbCommand extends Command
         $argumentValue = filter_var($argumentValueRaw, FILTER_UNSAFE_RAW);
         if (empty($argumentValue)) {
             $messageArgumentName = ucfirst($argumentName);
-            throw new InvalidArgumentException("$messageArgumentName must not be empty.");
+            throw new \InvalidArgumentException("$messageArgumentName must not be empty.");
         }
 
         return $argumentValue;
@@ -96,25 +91,26 @@ class TmdbCommand extends Command
     {
         $argumentValueRaw = $input->getArgument($argumentName);
         $argumentValue = filter_var($argumentValueRaw, FILTER_VALIDATE_INT);
-        if ($argumentValue === false) {
+        if (false === $argumentValue) {
             $messageArgumentName = ucfirst($argumentName);
-            throw new InvalidArgumentException("$messageArgumentName must be an integer.");
+            throw new \InvalidArgumentException("$messageArgumentName must be an integer.");
         }
 
         return $argumentValue;
     }
 
-    private function filterIntegerOption(InputInterface $input, string $optionName): ?int {
+    private function filterIntegerOption(InputInterface $input, string $optionName): ?int
+    {
         $optionRaw = $input->getOption($optionName);
 
-        if ($optionRaw === null) {
+        if (null === $optionRaw) {
             return null;
         }
 
         $optionValue = filter_var($optionRaw, FILTER_VALIDATE_INT);
-        if ($optionValue === false) {
+        if (false === $optionValue) {
             $messageOptionName = ucfirst($optionName);
-            throw new InvalidArgumentException("$messageOptionName must be an integer.");
+            throw new \InvalidArgumentException("$messageOptionName must be an integer.");
         }
 
         return $optionValue;
@@ -124,10 +120,10 @@ class TmdbCommand extends Command
     {
         $pageValue = $this->filterIntegerOption($input, self::OPTION_PAGE);
 
-        if ($pageValue === null) {
+        if (null === $pageValue) {
             $pageValue = 1;
         } elseif ($pageValue < 1) {
-            throw new InvalidArgumentException("Page number must be greater than 0.");
+            throw new \InvalidArgumentException('Page number must be greater than 0.');
         }
 
         return $pageValue;
@@ -153,13 +149,13 @@ class TmdbCommand extends Command
         foreach ($movies as $movie) {
             $title = $movie->title ?? 'N/A';
             $date = $movie->releaseDate ?? 'N/A';
-            $desc = $movie->overview?? 'No description available';
+            $desc = $movie->overview ?? 'No description available';
             $io->writeln(sprintf(
                 '  <fg=green>🎬</> <info>%s</info> <comment>(%s)</comment>',
                 $title,
                 $date
             ));
-            $io->writeln('      <fg=gray>' . wordwrap($desc, 80, "\n      ") . '</>');
+            $io->writeln('      <fg=gray>'.wordwrap($desc, 80, "\n      ").'</>');
             $io->newLine();
         }
     }
